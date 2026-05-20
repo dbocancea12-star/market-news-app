@@ -1,40 +1,65 @@
 import Constants from "expo-constants";
-import dayjs from "dayjs";
-import type { Event, Source } from "./types";
+import type { Event } from "./types";
 import { readCache, writeCache } from "./cache";
 
-const API_BASE: string =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
-  "http://localhost:8080";
+const DATA_URL: string =
+  (Constants.expoConfig?.extra?.dataUrl as string | undefined) ??
+  "https://raw.githubusercontent.com/dbocancea12-star/market-news-app/main/data/events.json";
 
-export const fetchEvents = async (opts: {
-  from?: string;
-  to?: string;
-  sources?: Source[];
-}): Promise<Event[]> => {
-  const from = opts.from ?? dayjs().subtract(1, "day").format("YYYY-MM-DD");
-  const to = opts.to ?? dayjs().add(14, "day").format("YYYY-MM-DD");
-  const sources = (opts.sources ?? ["forex", "oil", "earnings"]).join(",");
-  const cacheKey = `events:${from}:${to}:${sources}`;
+const CACHE_KEY = "events:all";
 
-  const url = `${API_BASE}/api/events?from=${from}&to=${to}&sources=${sources}`;
+type Payload = {
+  updatedAt: string;
+  count: number;
+  events: Event[];
+};
+
+let inMemory: Event[] | null = null;
+
+const fetchAll = async (): Promise<Event[]> => {
+  if (inMemory) return inMemory;
   try {
+    // Cache-bust query so GitHub's CDN doesn't serve stale data
+    const url = `${DATA_URL}?t=${Math.floor(Date.now() / 60000)}`;
     const res = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!res.ok) throw new Error(`api ${res.status}`);
-    const json = (await res.json()) as { events: Event[] };
-    await writeCache(cacheKey, json.events);
+    if (!res.ok) throw new Error(`fetch ${res.status}`);
+    const json = (await res.json()) as Payload;
+    inMemory = json.events;
+    await writeCache(CACHE_KEY, json.events);
     return json.events;
   } catch (err) {
-    const cached = await readCache<Event[]>(cacheKey);
-    if (cached) return cached;
+    const cached = await readCache<Event[]>(CACHE_KEY);
+    if (cached) {
+      inMemory = cached;
+      return cached;
+    }
     throw err;
   }
 };
 
-export const fetchEvent = async (id: string): Promise<Event> => {
-  const res = await fetch(`${API_BASE}/api/events/${id}`);
-  if (!res.ok) throw new Error(`api ${res.status}`);
-  return (await res.json()) as Event;
+export const refreshAll = async (): Promise<Event[]> => {
+  inMemory = null;
+  return fetchAll();
 };
 
-export { API_BASE };
+export const fetchEvents = async (opts: {
+  from?: string;
+  to?: string;
+}): Promise<Event[]> => {
+  const all = await fetchAll();
+  const { from, to } = opts;
+  return all.filter((e) => {
+    if (from && e.etDay < from) return false;
+    if (to && e.etDay > to) return false;
+    return true;
+  });
+};
+
+export const fetchEvent = async (id: string): Promise<Event> => {
+  const all = await fetchAll();
+  const found = all.find((e) => e.id === id);
+  if (!found) throw new Error(`Event ${id} not found`);
+  return found;
+};
+
+export { DATA_URL };

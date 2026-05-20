@@ -19,7 +19,7 @@
       "expo-asset"
     ],
     "extra": {
-      "apiBaseUrl": "http://192.168.0.101:8080"
+      "dataUrl": "https://raw.githubusercontent.com/dbocancea12-star/market-news-app/main/data/events.json"
     }
   }
 }

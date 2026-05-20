@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { fetchEvents } from "@/lib/api";
+import { fetchEvents, refreshAll } from "@/lib/api";
 import { useFilters } from "@/lib/store";
 import { computeRange, formatRangeSubtitle, type Range } from "@/lib/range";
 import { BG, BORDER, SURFACE, TEXT, TEXT_DIM } from "@/lib/colors";
@@ -62,9 +62,16 @@ export default function Calendar() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load(range);
+    setError(null);
+    try {
+      await refreshAll();
+      const data = await fetchEvents({ from: range.from, to: range.to });
+      setEvents(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
     setRefreshing(false);
-  }, [load, range]);
+  }, [range]);
 
   const visible = useMemo(() => {
     const sources = new Set(filters.activeSources());
