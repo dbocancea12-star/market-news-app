@@ -19,7 +19,12 @@
       "expo-asset"
     ],
     "extra": {
-      "dataUrl": "https://raw.githubusercontent.com/dbocancea12-star/market-news-app/main/data/events.json"
-    }
+      "dataUrl": "https://raw.githubusercontent.com/dbocancea12-star/market-news-app/main/data/events.json",
+      "router": {},
+      "eas": {
+        "projectId": "d7703b46-cff1-467b-9ee5-5ed443f928b9"
+      }
+    },
+    "owner": "dboc"
   }
 }
