@@ -46,7 +46,18 @@ jobs:
           git add data/events.json
           if git diff --staged --quiet; then
             echo "No data changes"
-          else
-            git commit -m "data: refresh $(date -u +%FT%TZ)"
-            git push
+            exit 0
           fi
+          git commit -m "data: refresh $(date -u +%FT%TZ)"
+          # Retry push with rebase to handle racing runs cleanly
+          for i in 1 2 3 4 5; do
+            if git push; then
+              echo "pushed on attempt $i"
+              exit 0
+            fi
+            echo "push failed on attempt $i, rebasing on latest main..."
+            git pull --rebase --autostash origin main
+            sleep $((RANDOM % 10 + 5))
+          done
+          echo "::error::push failed after 5 attempts"
+          exit 1
